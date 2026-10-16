@@ -1,0 +1,651 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Radar de Compras</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;600;700&family=Public+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: cabecera, banda de la mejor oportunidad, tres vistas (oportunidades, calculadora, compras) en una sola columna ancha. */
+:root{
+  --bg:#EDF1F0; --surface:#FFFFFF; --ink:#0F2A33; --muted:#566D74; --line:#D3DCDB;
+  --accent:#0B6E75; --accent-soft:#D6EAEB; --tag:#F0B323; --tag-ink:#3A2A00;
+  --good:#1B7F4B; --good-soft:#DCF1E5; --warn:#8A5A00; --warn-soft:#FBEBC8; --bad:#B3342B; --bad-soft:#F8DEDB;
+  --hero-bg:#0F2A33; --hero-fg:#EAF3F2; --hero-muted:#9DB8BD; --bubble:#1E4550;
+  --f-display:'Familjen Grotesk','Segoe UI',system-ui,sans-serif;
+  --f-body:'Public Sans','Segoe UI',system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B181D; --surface:#12262C; --ink:#E4EEEE; --muted:#8FA7AD; --line:#244048;
+    --accent:#3CC0C8; --accent-soft:#143A40; --tag:#F0B323; --tag-ink:#3A2A00;
+    --good:#4CC384; --good-soft:#123A27; --warn:#F0B323; --warn-soft:#3A2D0B; --bad:#F08178; --bad-soft:#41191A;
+    --hero-bg:#1A3B44; --hero-fg:#EAF3F2; --hero-muted:#9DB8BD; --bubble:#25525E;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B181D; --surface:#12262C; --ink:#E4EEEE; --muted:#8FA7AD; --line:#244048;
+  --accent:#3CC0C8; --accent-soft:#143A40; --tag:#F0B323; --tag-ink:#3A2A00;
+  --good:#4CC384; --good-soft:#123A27; --warn:#F0B323; --warn-soft:#3A2D0B; --bad:#F08178; --bad-soft:#41191A;
+  --hero-bg:#1A3B44; --hero-fg:#EAF3F2; --hero-muted:#9DB8BD; --bubble:#25525E;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body);
+  padding-block:20px 56px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;line-height:1.15}
+button,input,select{font:inherit;color:inherit}
+.wrap{max-width:1120px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+
+/* Cabecera */
+.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:10px}
+.brand svg{width:28px;height:28px;flex:none}
+.brand h1{font-size:24px;font-weight:700;letter-spacing:-.01em}
+.demo{font-size:13px;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 12px}
+
+/* Banda de mejor oportunidad: el momento memorable de la página */
+.hero{background:var(--hero-bg);color:var(--hero-fg);border-radius:14px;padding:24px;display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:24px}
+.hero .tagline{display:inline-flex;align-items:center;gap:8px;background:var(--tag);color:var(--tag-ink);font-weight:600;font-size:13px;padding:3px 12px 3px 10px;border-radius:4px 999px 999px 4px}
+.hero h2{font-size:clamp(22px,3.2vw,32px);font-weight:600;margin-top:12px;max-width:26ch}
+.hero .figs{display:flex;flex-wrap:wrap;gap:12px 32px;margin-top:20px}
+.hero .fig span{display:block;font-size:13px;color:var(--hero-muted)}
+.hero .fig b{font-family:var(--f-display);font-size:20px;font-weight:600}
+.hero .fig.big b{font-size:40px;line-height:1;color:var(--tag)}
+.hero .fig.big small{font-size:14px;color:var(--hero-fg);font-weight:500;margin-left:6px}
+.hero .btn{margin-top:20px}
+.chat{background:var(--bubble);border-radius:12px;padding:14px 16px;align-self:start}
+.chat .who{font-size:13px;color:var(--hero-muted);margin-bottom:8px}
+.chat p{margin:0;font-size:14px;line-height:1.55}
+.chat p+p{margin-top:6px}
+
+/* Botones */
+.btn{border:0;border-radius:8px;padding:9px 16px;font-weight:600;cursor:pointer;background:var(--accent);color:#fff;transition:filter .15s}
+.hero .btn{background:var(--tag);color:var(--tag-ink)}
+.btn:hover{filter:brightness(1.08)}
+.btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+.btn.sm{padding:6px 12px;font-size:14px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.hero :focus-visible{outline-color:var(--tag)}
+
+/* Pestañas */
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);overflow-x:auto}
+.tabs button{background:none;border:0;padding:10px 16px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.count{display:inline-block;min-width:20px;text-align:center;background:var(--accent-soft);color:var(--accent);border-radius:999px;font-size:12px;padding:0 6px;margin-left:6px}
+
+/* Parámetros */
+details.params{background:var(--surface);border:1px solid var(--line);border-radius:10px}
+details.params summary{cursor:pointer;padding:12px 16px;font-weight:600;display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline;list-style:none}
+details.params summary::-webkit-details-marker{display:none}
+details.params summary small{font-weight:400;color:var(--muted);font-size:13px}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;padding:4px 16px 8px}
+.pnote{padding:0 16px 14px;margin:0}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+label.f input,label.f select{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:15px;color:var(--ink);min-width:0;width:100%}
+.hint{font-size:12px;color:var(--muted)}
+
+/* Oportunidades */
+.bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 20px;margin-bottom:6px}
+.bar h3{font-size:18px}
+.bar .ctl{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;font-size:14px}
+.bar select{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+.bar label.chk{display:flex;gap:6px;align-items:center;cursor:pointer}
+ul.list{list-style:none;margin:0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.row{display:grid;grid-template-columns:minmax(0,2.2fr) 130px minmax(0,1.1fr) minmax(0,1.2fr) 150px;gap:8px 18px;align-items:center;padding:14px 16px}
+.row+.row{border-top:1px solid var(--line)}
+.who b{display:block;font-weight:600;line-height:1.3}
+.sub{font-size:13px;color:var(--muted)}
+.px b,.mg b{font-family:var(--f-display);font-size:18px;font-weight:600;display:block}
+.drop{font-size:13px;color:var(--good);font-weight:600}
+.drop.flat{color:var(--muted);font-weight:400}
+.oferta{display:inline-block;background:var(--tag);color:var(--tag-ink);font-size:12px;font-weight:600;padding:1px 8px;border-radius:3px 999px 999px 3px;margin-left:8px;vertical-align:2px}
+.act{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+.verdict{display:inline-block;font-size:13px;font-weight:600;border-radius:999px;padding:2px 10px}
+.verdict.ok{background:var(--good-soft);color:var(--good)}
+.verdict.mid{background:var(--warn-soft);color:var(--warn)}
+.verdict.no{background:var(--bad-soft);color:var(--bad)}
+.spark svg{display:block;width:100%;height:36px}
+.spark .ln{fill:none;stroke:var(--accent);stroke-width:1.75;stroke-linejoin:round;stroke-linecap:round}
+.spark .ar{fill:var(--accent);fill-opacity:.12;stroke:none}
+.spark .dot{fill:var(--tag);stroke:var(--accent);stroke-width:1.5}
+.empty{padding:28px 16px;color:var(--muted);text-align:center}
+
+/* Calculadora */
+.calc{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:24px;align-items:start}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px}
+.panel h3{font-size:18px;margin-bottom:14px}
+.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.fields .full{grid-column:1/-1}
+dl.break{margin:0;display:grid;grid-template-columns:1fr auto;gap:6px 16px}
+dl.break dt{color:var(--muted)}
+dl.break dd{margin:0;text-align:right}
+dl.break .sum{font-weight:600;border-top:1px solid var(--line);padding-top:8px;margin-top:2px;color:var(--ink)}
+.result{display:flex;flex-direction:column;gap:16px}
+.banner{border-radius:10px;padding:14px 16px;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px}
+.banner.ok{background:var(--good-soft);color:var(--good)}
+.banner.mid{background:var(--warn-soft);color:var(--warn)}
+.banner.no{background:var(--bad-soft);color:var(--bad)}
+.banner strong{font-family:var(--f-display);font-size:22px}
+.banner span{font-size:14px}
+.stack{display:flex;height:16px;border-radius:999px;overflow:hidden;background:var(--line);gap:2px}
+.stack i{display:block;height:100%}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--muted);margin-top:8px}
+.legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--c);margin-right:6px;vertical-align:-1px}
+.c-price{--c:var(--accent)} .c-tax{--c:#6BB3B8} .c-log{--c:#8CA0A6} .c-com{--c:var(--tag)} .c-net{--c:var(--good)}
+.stack .c-price{background:var(--accent)} .stack .c-tax{background:#6BB3B8} .stack .c-log{background:#8CA0A6} .stack .c-com{background:var(--tag)} .stack .c-net{background:var(--good)}
+.minp{font-size:14px;color:var(--muted);margin:0}
+.minp b{color:var(--ink)}
+
+/* Compras */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px}
+.kpi{border-left:3px solid var(--accent);padding:2px 0 2px 12px}
+.kpi span{display:block;font-size:13px;color:var(--muted)}
+.kpi b{font-family:var(--f-display);font-size:22px;font-weight:600}
+.kpi.g{border-left-color:var(--good)}
+.tablebox{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+table{border-collapse:collapse;width:100%;min-width:800px}
+th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:13px;font-weight:500;color:var(--muted)}
+tr:last-child td{border-bottom:0}
+td.num,th.num{text-align:right}
+td.name{white-space:normal;min-width:200px;font-weight:500}
+td select{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:4px 6px}
+.est{color:var(--muted)}
+.pos{color:var(--good);font-weight:600}
+.neg{color:var(--bad);font-weight:600}
+.note{font-size:13px;color:var(--muted);max-width:70ch}
+
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:8px;font-weight:500;z-index:20;max-width:calc(100% - 32px)}
+
+@media (max-width:900px){
+  .hero{grid-template-columns:minmax(0,1fr)}
+  .calc{grid-template-columns:minmax(0,1fr)}
+  .row{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .who{grid-column:1/-1}
+  .act{flex-direction:row;align-items:center;justify-content:space-between;grid-column:1/-1}
+}
+@media (max-width:480px){
+  .hero{padding:18px}
+  .fields{grid-template-columns:minmax(0,1fr)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* Acceso */
+.auth{max-width:420px;margin:8vh auto 0;display:flex;flex-direction:column;gap:18px}
+.auth .panel{display:flex;flex-direction:column;gap:14px}
+.auth .seg{display:flex;gap:4px;border-bottom:1px solid var(--line)}
+.auth .seg button{flex:1}
+.msg{font-size:14px;color:var(--bad);margin:0;min-height:1.4em}
+.btn:disabled{opacity:.6;cursor:default}
+/* Rango de precio: dónde está el precio actual entre el mínimo y el máximo */
+.range{position:relative;height:6px;border-radius:999px;background:var(--line);margin:8px 0 4px}
+.range i{position:absolute;top:-4px;width:14px;height:14px;border-radius:50%;background:var(--tag);border:2px solid var(--accent);transform:translateX(-50%)}
+.rl{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+.hero.solo{grid-template-columns:minmax(0,1fr)}
+.pform{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;align-items:end}
+.pform .full{grid-column:1/-1}
+.link{background:none;border:0;color:var(--accent);cursor:pointer;padding:0;font-weight:600;font-size:13px}
+.link.warn{color:var(--bad)}
+.act .links{display:flex;gap:14px}
+td input.vv{width:92px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:4px 6px;text-align:right}
+.top .who2{display:flex;align-items:center;gap:12px}
+</style>
+</head>
+<body>
+<div class="wrap" id="auth" hidden>
+  <div class="auth">
+    <div class="brand">
+      <svg viewBox="0 0 28 28" aria-hidden="true"><path d="M4 4h11.5L25 13.5 15.5 23 6 13.5z" fill="var(--accent)"/><circle cx="10" cy="9.5" r="2" fill="var(--tag)"/></svg>
+      <h1>Radar de Compras</h1>
+    </div>
+    <form class="panel" id="authform" novalidate>
+      <div class="seg tabs" role="tablist">
+        <button type="button" role="tab" data-mode="login" aria-selected="true">Entrar</button>
+        <button type="button" role="tab" data-mode="registro" aria-selected="false">Crear cuenta</button>
+      </div>
+      <label class="f">Correo<input id="a-mail" type="email" autocomplete="email" required></label>
+      <label class="f">Contraseña (mínimo 10 caracteres)<input id="a-pass" type="password" autocomplete="current-password" required minlength="10"></label>
+      <label class="f" id="a-codewrap" hidden>Código de invitación<input id="a-code" type="text" autocomplete="off"></label>
+      <p class="msg" id="a-msg" role="alert"></p>
+      <button class="btn" id="a-go" type="submit">Entrar</button>
+    </form>
+  </div>
+</div>
+
+<div class="wrap" id="app" hidden>
+  <header class="top">
+    <div class="brand">
+      <svg viewBox="0 0 28 28" aria-hidden="true"><path d="M4 4h11.5L25 13.5 15.5 23 6 13.5z" fill="var(--accent)"/><circle cx="10" cy="9.5" r="2" fill="var(--tag)"/></svg>
+      <h1>Radar de Compras</h1>
+    </div>
+    <div class="who2"><span class="demo" id="status">Cargando…</span><button class="btn ghost sm" id="logout" type="button">Salir</button></div>
+  </header>
+
+  <section class="hero" id="hero" aria-label="Mejor oportunidad de hoy"></section>
+
+  <details class="params" id="params">
+    <summary><span>Costos y comisiones</span><small id="psum"></small></summary>
+    <div class="pgrid">
+      <label class="f">Impuesto de venta en la compra (%)<input id="p-tax" type="number" step="0.1" min="0" max="30" inputmode="decimal"></label>
+      <label class="f">Empaque por unidad (US$)<input id="p-pack" type="number" step="0.1" min="0" max="100" inputmode="decimal"></label>
+      <label class="f">Canal de venta<select id="p-canal"></select></label>
+      <label class="f">Comisión del canal (%)<input id="p-com" type="number" step="0.05" min="0" max="60" inputmode="decimal"></label>
+      <label class="f">Cargo fijo por venta (US$)<input id="p-fijo" type="number" step="0.05" min="0" max="100" inputmode="decimal"></label>
+      <label class="f">Margen mínimo deseado (%)<input id="p-meta" type="number" step="1" min="0" max="90" inputmode="decimal"></label>
+    </div>
+    <p class="hint pnote">Las tarifas de cada canal son valores de ejemplo y se pueden editar. Confirma las vigentes con la plataforma. Si tienes certificado de reventa y no pagas impuesto en Amazon, pon el impuesto en 0. Los cambios se guardan solos.</p>
+  </details>
+
+  <nav class="tabs" role="tablist" aria-label="Secciones">
+    <button role="tab" id="t-op" data-tab="op" aria-selected="true">Oportunidades</button>
+    <button role="tab" id="t-calc" data-tab="calc" aria-selected="false">Calculadora</button>
+    <button role="tab" id="t-buy" data-tab="buy" aria-selected="false">Compras<span class="count" id="buycount">0</span></button>
+  </nav>
+
+  <section id="v-op" role="tabpanel" aria-labelledby="t-op">
+    <details class="params" id="addbox" style="margin-bottom:16px">
+      <summary><span id="addtitle">Agregar un producto a vigilar</span></summary>
+      <form class="pform" id="pform" style="padding:4px 16px 16px" novalidate>
+        <label class="f">ASIN de Amazon (10 caracteres)<input id="n-asin" type="text" maxlength="10" autocomplete="off" style="text-transform:uppercase"></label>
+        <label class="f">Nombre<input id="n-name" type="text" maxlength="300"></label>
+        <label class="f">Categoría<input id="n-cat" type="text" maxlength="80"></label>
+        <label class="f">Precio de venta estimado (US$)<input id="n-venta" type="number" step="0.01" min="0" inputmode="decimal"></label>
+        <label class="f">Envío al comprador (US$)<input id="n-ship" type="number" step="0.01" min="0" inputmode="decimal"></label>
+        <div><button class="btn" type="submit" id="n-go">Guardar producto</button></div>
+        <p class="hint full" style="margin:0">El ASIN está en la dirección del producto en Amazon, después de /dp/. El precio llega cuando el recolector consulta el producto; mientras tanto puedes usar la calculadora con un precio escrito a mano.</p>
+        <p class="msg full" id="n-msg" role="alert"></p>
+      </form>
+    </details>
+    <div class="bar">
+      <h3>Productos vigilados en Amazon</h3>
+      <div class="ctl">
+        <label class="chk"><input type="checkbox" id="only"> Solo los que cumplen mi margen</label>
+        <label>Ordenar por <select id="sort">
+          <option value="mg">Mayor ganancia</option>
+          <option value="roi">Mayor retorno (ROI)</option>
+          <option value="drop">Mayor bajada de precio</option>
+        </select></label>
+      </div>
+    </div>
+    <ul class="list" id="list"></ul>
+  </section>
+
+  <section id="v-calc" role="tabpanel" aria-labelledby="t-calc" hidden>
+    <div class="calc">
+      <div class="panel">
+        <h3>Datos de la compra</h3>
+        <div class="fields">
+          <label class="f full">Producto vigilado<select id="c-prod"></select></label>
+          <label class="f full">Nombre<input id="c-name" type="text" maxlength="300"></label>
+          <label class="f">Precio en Amazon (US$)<input id="c-price" type="number" step="0.01" min="0" inputmode="decimal"></label>
+          <label class="f">Tu precio de venta (US$)<input id="c-venta" type="number" step="0.01" min="0" inputmode="decimal"></label>
+          <label class="f">Envío al comprador (US$)<input id="c-ship" type="number" step="0.01" min="0" inputmode="decimal"></label>
+          <label class="f">Cantidad<input id="c-qty" type="number" step="1" min="1" max="10000" inputmode="numeric"></label>
+        </div>
+        <p class="hint" style="margin:12px 0 0">Impuesto, empaque, comisión y margen mínimo salen de "Costos y comisiones". Si vendes con envío gratis, el envío al comprador lo pagas tú.</p>
+      </div>
+      <div class="panel result" id="calcout"></div>
+    </div>
+  </section>
+
+  <section id="v-buy" role="tabpanel" aria-labelledby="t-buy" hidden>
+    <div class="kpis" id="kpis"></div>
+    <div class="tablebox">
+      <table>
+        <thead><tr>
+          <th>Producto</th><th class="num">Cant.</th><th class="num">Costo c/u</th><th>Fecha</th><th>Estado</th><th>Canal</th><th class="num">Venta c/u</th><th class="num">Ganancia</th>
+        </tr></thead>
+        <tbody id="buyrows"></tbody>
+      </table>
+    </div>
+    <p class="note" style="margin-top:12px">El costo de cada compra queda guardado con los valores del día en que se registró, así no cambia cuando cambian el impuesto o el empaque. Al pasar una compra a Vendido se usa el precio de venta que escribas; si lo dejas vacío, el estimado.</p>
+  </section>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<script>
+(function(){
+  var ESTADOS=['Comprado','En camino','Recibido','Publicado','Vendido'];
+  var CANALES=[
+    {id:'ebay',name:'eBay',com:13.25,fijo:0.30},
+    {id:'fba',name:'Amazon con FBA',com:15,fijo:3.50},
+    {id:'fb',name:'Facebook Marketplace con envío',com:10,fijo:0},
+    {id:'web',name:'Tienda propia',com:2.9,fijo:0.30},
+    {id:'custom',name:'Personalizado',com:null,fijo:null}
+  ];
+  var S={tax:7,pack:1,canal:'ebay',com:13.25,fijo:0.30,meta:20,only:false,sort:'mg',c:{pid:'',name:'',price:0,venta:0,ship:0,qty:1}};
+  var P=[],B=[],TOKEN=null,editing=null,saveT=null,loaded=false;
+  try{TOKEN=localStorage.getItem('radar_token')}catch(e){}
+
+  function $(id){return document.getElementById(id)}
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+  var nf=new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  var nf0=new Intl.NumberFormat('en-US',{maximumFractionDigits:0});
+  var nf2=new Intl.NumberFormat('en-US',{maximumFractionDigits:2});
+  function m(n){return(n<0?'-':'')+'$'+nf.format(Math.abs(n))}
+  function pc(n){return nf0.format(Math.round(n))+'%'}
+  function num(v){var n=parseFloat(v);return isFinite(n)?n:0}
+  function fd(s){return new Date(String(s).slice(0,10)+'T12:00:00').toLocaleDateString('es-US',{day:'numeric',month:'short'})}
+  var tt=null;
+  function toast(t){var el=$('toast');el.textContent=t;el.hidden=false;clearTimeout(tt);tt=setTimeout(function(){el.hidden=true},3200)}
+
+  /* Conexión con la API */
+  function api(path,method,body){
+    var h={'Content-Type':'application/json'};if(TOKEN)h.Authorization='Bearer '+TOKEN;
+    return fetch(path,{method:method||'GET',headers:h,body:body?JSON.stringify(body):undefined}).then(function(r){
+      return r.text().then(function(t){
+        var j=null;try{j=JSON.parse(t)}catch(e){}
+        if(r.status===401&&TOKEN&&path!=='/login'){logout();throw new Error('La sesión venció. Entra de nuevo.')}
+        if(!r.ok){var d=j&&j.detail;if(typeof d!=='string')d=r.status===422?'Revisa los datos: alguno no es válido.':'No se pudo completar ('+r.status+').';throw new Error(d)}
+        return j;
+      });
+    },function(){throw new Error('Sin conexión con el servidor.')});
+  }
+
+  /* Cálculo */
+  function canal(){return CANALES.filter(function(c){return c.id===S.canal})[0]||CANALES[0]}
+  function cost(price){var tax=price*S.tax/100;return{price:price,tax:tax,pack:S.pack,total:price+tax+S.pack}}
+  function ev(price,ship,venta){
+    var c=cost(price),fee=venta*S.com/100+S.fijo;
+    c.ship=ship;c.fee=fee;c.venta=venta;
+    c.net=venta-fee-ship-c.total;
+    c.mg=venta>0?c.net/venta*100:0;
+    c.roi=c.total>0?c.net/c.total*100:0;
+    var den=1-S.com/100-S.meta/100;
+    c.minVenta=den>0?(c.total+ship+S.fijo)/den:null;
+    return c;
+  }
+  function verdict(mg){
+    if(mg>=S.meta)return{k:'ok',t:'Comprar'};
+    if(mg>=S.meta*0.6)return{k:'mid',t:'Negociar'};
+    return{k:'no',t:'Descartar'};
+  }
+  function hasPrice(p){return p.price>0}
+  function evp(p){return ev(p.price,p.ship,p.venta)}
+  function dropPct(p){return p.avg>0?(1-p.price/p.avg)*100:0}
+
+  /* Datos */
+  function mapProd(r){return{id:r.id,asin:r.asin,name:r.titulo||'Producto sin nombre',cat:r.categoria||'',
+    price:num(r.amazon_actual),avg:num(r.amazon_prom),min:num(r.amazon_min),max:num(r.amazon_max),
+    venta:num(r.venta_est),ship:num(r.envio_est),seen:r.consultado_en}}
+  function mapBuy(r){return{id:r.id,pid:r.producto_id,name:r.nombre,qty:r.cantidad,costo:num(r.costo_unitario),ship:num(r.envio_comprador),
+    fecha:r.fecha,estado:r.estado,canal:r.canal||'',venta:r.precio_venta==null?null:num(r.precio_venta),est:num(r.precio_estimado)}}
+  function load(){
+    return Promise.all([api('/ajustes'),api('/productos'),api('/compras')]).then(function(r){
+      var a=r[0];S.tax=num(a.impuesto_pct);S.pack=num(a.empaque);S.canal=a.canal;S.com=num(a.comision_pct);S.fijo=num(a.cargo_fijo);S.meta=num(a.margen_minimo);
+      if(!CANALES.some(function(c){return c.id===S.canal}))S.canal='custom';
+      P=r[1].map(mapProd);B=r[2].map(mapBuy);loaded=true;
+      $('status').textContent=P.length+(P.length===1?' producto vigilado':' productos vigilados');
+      syncParams();renderAll();
+    });
+  }
+  function saveSettings(){
+    clearTimeout(saveT);
+    saveT=setTimeout(function(){
+      api('/ajustes','PUT',{impuesto_pct:S.tax,empaque:S.pack,canal:S.canal,comision_pct:S.com,cargo_fijo:S.fijo,margen_minimo:S.meta})
+        .catch(function(e){toast('No se guardaron los costos: '+e.message)});
+    },600);
+  }
+
+  /* Vistas */
+  function rangeBar(p){
+    if(!(p.max>p.min))return'';
+    var x=Math.min(100,Math.max(0,(p.price-p.min)/(p.max-p.min)*100));
+    return '<div class="range" role="img" aria-label="Precio actual entre el mínimo y el máximo históricos"><i style="left:'+x.toFixed(1)+'%"></i></div>'+
+      '<div class="rl"><span>'+m(p.min)+'</span><span>'+m(p.max)+'</span></div>';
+  }
+  function renderHero(){
+    var cands=P.filter(function(p){return hasPrice(p)&&p.venta>0}).map(function(p){return{p:p,e:evp(p)}}).sort(function(a,b){return b.e.net-a.e.net});
+    var h=$('hero');
+    if(!P.length){
+      h.className='hero solo';
+      h.innerHTML='<div><span class="tagline">Empieza aquí</span><h2>Agrega el primer producto que quieras vigilar</h2>'+
+        '<p style="margin:12px 0 0;color:var(--hero-muted);max-width:56ch">Con el ASIN de Amazon y el precio al que piensas venderlo, el radar calcula cuánto ganarías después de impuesto, empaque y comisión.</p>'+
+        '<button class="btn" data-act="add">Agregar producto</button></div>';
+      return;
+    }
+    if(!cands.length){
+      h.className='hero solo';
+      h.innerHTML='<div><span class="tagline">Esperando precios</span><h2>Todavía no hay precios para calcular oportunidades</h2>'+
+        '<p style="margin:12px 0 0;color:var(--hero-muted);max-width:56ch">Los precios llegan cuando el recolector consulta tus productos. Mientras, puedes evaluar una compra con un precio escrito a mano.</p>'+
+        '<button class="btn" data-act="calc">Abrir la calculadora</button></div>';
+      return;
+    }
+    var b=cands[0],p=b.p,e=b.e,good=e.mg>=S.meta;
+    h.className='hero solo';
+    h.innerHTML='<div><span class="tagline">'+(good?'Mejor oportunidad hoy':'Lo más cercano a tu margen')+'</span><h2>'+esc(p.name)+'</h2>'+
+      '<div class="figs">'+
+        '<div class="fig big"><span>Ganancia estimada por unidad</span><b>'+m(e.net)+'</b><small>'+pc(e.mg)+' de margen</small></div>'+
+        '<div class="fig"><span>Precio en Amazon</span><b>'+m(p.price)+'</b></div>'+
+        '<div class="fig"><span>Costo con impuesto y empaque</span><b>'+m(e.total)+'</b></div>'+
+        '<div class="fig"><span>Venta estimada</span><b>'+m(p.venta)+'</b></div>'+
+      '</div><button class="btn" data-act="calc" data-id="'+p.id+'">Evaluar en la calculadora</button></div>';
+  }
+  function renderList(){
+    var ul=$('list');
+    if(!P.length){ul.innerHTML='<li class="empty">Aún no vigilas ningún producto. Abre "Agregar un producto a vigilar" y escribe su ASIN.</li>';return}
+    var rows=P.map(function(p){var ok=hasPrice(p)&&p.venta>0;return{p:p,ok:ok,e:ok?evp(p):null,d:hasPrice(p)?dropPct(p):0}});
+    if(S.only)rows=rows.filter(function(r){return r.ok&&r.e.mg>=S.meta});
+    var k=S.sort;
+    rows.sort(function(a,b){
+      if(a.ok!==b.ok)return a.ok?-1:1;
+      if(!a.ok)return 0;
+      return k==='roi'?b.e.roi-a.e.roi:k==='drop'?b.d-a.d:b.e.net-a.e.net;
+    });
+    if(!rows.length){ul.innerHTML='<li class="empty">Ningún producto llega a tu margen mínimo de '+pc(S.meta)+'. Baja el margen en "Costos y comisiones" o desactiva el filtro.</li>';return}
+    ul.innerHTML=rows.map(function(r){
+      var p=r.p,e=r.e,v=e?verdict(e.mg):null;
+      var mid=hasPrice(p)?'<div class="px"><b>'+m(p.price)+'</b><span class="drop'+(r.d<5?' flat':'')+'">'+(p.avg>0?(r.d>=5?'-'+pc(r.d)+' vs. promedio':'Cerca del promedio'):'Sin promedio todavía')+'</span></div>':
+        '<div class="px"><b>Sin precio</b><span class="sub">Esperando la primera consulta</span></div>';
+      var gain=e?'<div class="mg"><b>'+m(e.net)+'</b><span class="sub">'+pc(e.mg)+' de margen, ROI '+pc(e.roi)+'</span></div>':
+        '<div class="mg"><span class="sub">'+(p.venta>0?'Falta el precio de Amazon':'Falta tu precio de venta estimado')+'</span></div>';
+      return '<li class="row">'+
+        '<div class="who"><b>'+esc(p.name)+(hasPrice(p)&&r.d>=25?'<span class="oferta">Oferta</span>':'')+'</b><span class="sub">'+(p.cat?esc(p.cat)+', ':'')+'ASIN '+esc(p.asin)+'</span></div>'+
+        '<div class="spark">'+(hasPrice(p)?rangeBar(p):'')+'</div>'+mid+gain+
+        '<div class="act">'+(v?'<span class="verdict '+v.k+'">'+v.t+'</span>':'')+
+          '<div class="links"><button class="btn ghost sm" data-act="calc" data-id="'+p.id+'">Evaluar</button>'+
+          '<button class="link" data-act="edit" data-id="'+p.id+'">Editar</button>'+
+          '<button class="link warn" data-act="del" data-id="'+p.id+'">Quitar</button></div></div></li>';
+    }).join('');
+  }
+  function renderCalc(){
+    var c=S.c,e=ev(c.price,c.ship,c.venta),v=verdict(e.mg);
+    var tot=e.price+e.tax+e.pack+e.ship+e.fee+Math.max(e.net,0)||1;
+    function w(x){return(Math.max(x,0)/tot*100).toFixed(2)+'%'}
+    var ready=c.price>0&&c.venta>0;
+    $('calcout').innerHTML=
+      '<h3>Resultado</h3>'+
+      (ready?'<div class="banner '+v.k+'"><div><strong>'+v.t+'</strong><br><span>Margen '+pc(e.mg)+' sobre la venta, meta '+pc(S.meta)+'</span></div>'+
+      '<div style="text-align:right"><strong>'+m(e.net)+'</strong><br><span>ganancia por unidad, ROI '+pc(e.roi)+'</span></div></div>':
+      '<p class="minp">Escribe el precio en Amazon y tu precio de venta para ver el resultado.</p>')+
+      '<div><div class="stack" role="img" aria-label="Reparto del precio de venta">'+
+        '<i class="c-price" style="width:'+w(e.price)+'"></i><i class="c-tax" style="width:'+w(e.tax+e.pack)+'"></i>'+
+        '<i class="c-log" style="width:'+w(e.ship)+'"></i><i class="c-com" style="width:'+w(e.fee)+'"></i>'+
+        '<i class="c-net" style="width:'+w(e.net)+'"></i></div>'+
+        '<div class="legend"><span class="c-price">Producto</span><span class="c-tax">Impuesto y empaque</span><span class="c-log">Envío al comprador</span><span class="c-com">Comisión</span><span class="c-net">Ganancia</span></div></div>'+
+      '<dl class="break">'+
+        '<dt>Precio en Amazon</dt><dd>'+m(e.price)+'</dd>'+
+        '<dt>Impuesto ('+pc(S.tax)+')</dt><dd>'+m(e.tax)+'</dd>'+
+        '<dt>Empaque</dt><dd>'+m(e.pack)+'</dd>'+
+        '<dt class="sum">Costo total</dt><dd class="sum">'+m(e.total)+'</dd>'+
+        '<dt>Venta en '+esc(canal().name)+'</dt><dd>'+m(c.venta)+'</dd>'+
+        '<dt>Comisión ('+nf2.format(S.com)+'% + '+m(S.fijo)+')</dt><dd>-'+m(e.fee)+'</dd>'+
+        '<dt>Envío al comprador</dt><dd>-'+m(e.ship)+'</dd>'+
+      '</dl>'+
+      '<p class="minp">'+(e.minVenta?'Para llegar a tu margen de '+pc(S.meta)+' tendrías que vender a <b>'+m(e.minVenta)+'</b>.':'Con esa comisión y ese margen no hay precio que alcance la meta.')+'</p>'+
+      '<div><button class="btn" data-act="buy" '+(ready&&c.name?'':'disabled')+'>Registrar compra</button></div>';
+  }
+  function gain(b){var vv=b.estado==='Vendido'&&b.venta!=null?b.venta:b.est;return(vv-vv*S.com/100-S.fijo-b.ship-b.costo)*b.qty}
+  function renderBuy(){
+    var inv=0,res=0,got=0,und=0;
+    B.forEach(function(b){
+      if(b.estado==='Vendido')got+=gain(b);
+      else{inv+=b.costo*b.qty;res+=b.est*b.qty;und+=b.qty}
+    });
+    $('buycount').textContent=B.length;
+    $('kpis').innerHTML=
+      '<div class="kpi"><span>Invertido en inventario</span><b>'+m(inv)+'</b></div>'+
+      '<div class="kpi"><span>Venta esperada del inventario</span><b>'+m(res)+'</b></div>'+
+      '<div class="kpi"><span>Unidades por vender</span><b>'+nf0.format(und)+'</b></div>'+
+      '<div class="kpi g"><span>Ganancia de lo ya vendido</span><b>'+m(got)+'</b></div>';
+    if(!B.length){$('buyrows').innerHTML='<tr><td colspan="8" class="empty">Todavía no registras compras. En la calculadora, completa los datos y pulsa "Registrar compra".</td></tr>';return}
+    $('buyrows').innerHTML=B.map(function(b){
+      var g=gain(b),sold=b.estado==='Vendido';
+      return '<tr><td class="name">'+esc(b.name)+'</td><td class="num">'+b.qty+'</td><td class="num">'+m(b.costo)+'</td><td>'+fd(b.fecha)+'</td>'+
+        '<td><select data-buy="'+b.id+'" aria-label="Estado">'+ESTADOS.map(function(s){return'<option'+(s===b.estado?' selected':'')+'>'+s+'</option>'}).join('')+'</select></td>'+
+        '<td>'+esc(b.canal)+'</td>'+
+        '<td class="num">'+(sold?'<input class="vv" type="number" step="0.01" min="0" data-sale="'+b.id+'" value="'+(b.venta==null?'':b.venta)+'" aria-label="Precio de venta">':'<span class="est">'+m(b.est)+' est.</span>')+'</td>'+
+        '<td class="num '+(sold?(g>=0?'pos':'neg'):'est')+'">'+m(g)+(sold?'':' est.')+'</td></tr>';
+    }).join('');
+  }
+  function syncParams(){
+    $('p-tax').value=S.tax;$('p-pack').value=S.pack;$('p-com').value=S.com;$('p-fijo').value=S.fijo;$('p-meta').value=S.meta;
+    $('p-canal').innerHTML=CANALES.map(function(c){return'<option value="'+c.id+'"'+(c.id===S.canal?' selected':'')+'>'+c.name+'</option>'}).join('');
+    var custom=S.canal==='custom';$('p-com').disabled=false;$('p-fijo').disabled=false;
+    $('psum').textContent=S.tax+'% impuesto, '+canal().name+' '+nf2.format(S.com)+'%, margen mínimo '+S.meta+'%';
+  }
+  function syncCalcFields(){
+    var c=S.c;
+    $('c-prod').innerHTML='<option value="">Escribir a mano</option>'+P.map(function(p){return'<option value="'+p.id+'"'+(String(p.id)===String(c.pid)?' selected':'')+'>'+esc(p.name)+'</option>'}).join('');
+    $('c-name').value=c.name;$('c-price').value=c.price||'';$('c-venta').value=c.venta||'';$('c-ship').value=c.ship||'';$('c-qty').value=c.qty;
+  }
+  function renderAll(){renderHero();renderList();renderCalc();renderBuy()}
+
+  /* Acciones */
+  function showTab(t){
+    ['op','calc','buy'].forEach(function(k){
+      $('v-'+k).hidden=k!==t;$('t-'+k).setAttribute('aria-selected',k===t?'true':'false');
+    });
+    if(t==='calc')syncCalcFields();
+  }
+  function openCalc(id){
+    var p=P.filter(function(x){return String(x.id)===String(id)})[0];
+    if(p)S.c={pid:p.id,name:p.name,price:p.price||0,venta:p.venta||0,ship:p.ship||0,qty:1};
+    showTab('calc');renderCalc();
+  }
+  function fillForm(p){
+    $('n-asin').value=p?p.asin:'';$('n-asin').readOnly=!!p;$('n-name').value=p&&p.name!=='Producto sin nombre'?p.name:'';
+    $('n-cat').value=p?p.cat:'';$('n-venta').value=p&&p.venta?p.venta:'';$('n-ship').value=p&&p.ship?p.ship:'';$('n-msg').textContent='';
+    $('addtitle').textContent=p?'Editar producto':'Agregar un producto a vigilar';
+  }
+  document.addEventListener('click',function(ev){
+    var b=ev.target.closest('[data-act]');if(!b)return;
+    var act=b.getAttribute('data-act'),id=b.getAttribute('data-id');
+    if(act==='calc'){id?openCalc(id):(showTab('calc'),renderCalc())}
+    else if(act==='add'){editing=null;fillForm(null);$('addbox').open=true;showTab('op');$('n-asin').focus()}
+    else if(act==='edit'){
+      var p=P.filter(function(x){return String(x.id)===id})[0];if(!p)return;
+      editing=p.asin;fillForm(p);$('addbox').open=true;$('addbox').scrollIntoView({behavior:'smooth',block:'start'});$('n-name').focus();
+    }
+    else if(act==='del'){
+      if(b.getAttribute('data-sure')!=='1'){
+        b.setAttribute('data-sure','1');b.textContent='Confirmar';
+        setTimeout(function(){if(b.isConnected){b.removeAttribute('data-sure');b.textContent='Quitar'}},4000);return;
+      }
+      var q=P.filter(function(x){return String(x.id)===id})[0];if(!q)return;
+      api('/productos/'+encodeURIComponent(q.asin),'DELETE').then(function(){P=P.filter(function(x){return x!==q});renderAll();syncCalcFields();toast('Producto quitado de la vigilancia')})
+        .catch(function(e){toast(e.message)});
+    }
+    else if(act==='buy'){
+      var c=S.c,e=ev(c.price,c.ship,c.venta),btn=b;btn.disabled=true;
+      api('/compras','POST',{nombre:c.name,producto_id:c.pid?Number(c.pid):null,cantidad:Math.max(1,Math.round(c.qty)||1),costo_unitario:Math.round(e.total*100)/100,
+        envio_comprador:c.ship,estado:'Comprado',canal:canal().name,precio_estimado:c.venta})
+        .then(function(r){B.unshift(mapBuy(r));renderBuy();showTab('buy');toast('Compra registrada')})
+        .catch(function(er){toast(er.message)}).then(function(){btn.disabled=false});
+    }
+  });
+  document.querySelector('.tabs[aria-label="Secciones"]').addEventListener('click',function(e){var t=e.target.closest('[data-tab]');if(t)showTab(t.getAttribute('data-tab'))});
+
+  $('pform').addEventListener('submit',function(e){
+    e.preventDefault();
+    var asin=$('n-asin').value.trim().toUpperCase(),msg=$('n-msg');
+    if(!/^[A-Z0-9]{10}$/.test(asin)){msg.textContent='El ASIN debe tener 10 letras o números.';return}
+    var body={asin:asin,titulo:$('n-name').value.trim()||null,categoria:$('n-cat').value.trim()||null,
+      venta_est:$('n-venta').value===''?null:num($('n-venta').value),envio_est:$('n-ship').value===''?null:num($('n-ship').value)};
+    $('n-go').disabled=true;msg.textContent='';
+    api('/productos','POST',body).then(function(){return api('/productos')}).then(function(r){
+      P=r.map(mapProd);editing=null;fillForm(null);$('addbox').open=false;
+      $('status').textContent=P.length+(P.length===1?' producto vigilado':' productos vigilados');renderAll();toast('Producto guardado');
+    }).catch(function(er){msg.textContent=er.message}).then(function(){$('n-go').disabled=false});
+  });
+
+  /* Costos */
+  function bindParam(id,key,min,max){
+    $(id).addEventListener('input',function(){
+      var v=num(this.value);S[key]=Math.min(max,Math.max(min,v));
+      if(key==='com'||key==='fijo'){S.canal='custom';$('p-canal').value='custom'}
+      $('psum').textContent=S.tax+'% impuesto, '+canal().name+' '+nf2.format(S.com)+'%, margen mínimo '+S.meta+'%';
+      renderAll();saveSettings();
+    });
+  }
+  bindParam('p-tax','tax',0,30);bindParam('p-pack','pack',0,100);bindParam('p-com','com',0,60);bindParam('p-fijo','fijo',0,100);bindParam('p-meta','meta',0,90);
+  $('p-canal').addEventListener('change',function(){
+    S.canal=this.value;var c=canal();
+    if(c.com!=null){S.com=c.com;S.fijo=c.fijo;$('p-com').value=S.com;$('p-fijo').value=S.fijo}
+    syncParams();renderAll();saveSettings();
+  });
+  $('only').addEventListener('change',function(){S.only=this.checked;renderList()});
+  $('sort').addEventListener('change',function(){S.sort=this.value;renderList()});
+
+  /* Calculadora */
+  $('c-prod').addEventListener('change',function(){
+    if(!this.value){S.c.pid='';renderCalc();return}
+    openCalc(this.value);
+  });
+  [['c-name','name',true],['c-price','price'],['c-venta','venta'],['c-ship','ship'],['c-qty','qty']].forEach(function(f){
+    $(f[0]).addEventListener('input',function(){S.c[f[1]]=f[2]?this.value:num(this.value);renderCalc()});
+  });
+
+  /* Compras: estado y precio de venta */
+  $('buyrows').addEventListener('change',function(e){
+    var t=e.target,id=t.getAttribute('data-buy'),sid=t.getAttribute('data-sale');
+    var b=B.filter(function(x){return String(x.id)===(id||sid)})[0];if(!b)return;
+    var estado=id?t.value:b.estado,venta=sid?(t.value===''?null:num(t.value)):b.venta;
+    if(estado==='Vendido'&&venta==null)venta=b.est;
+    api('/compras/'+b.id,'PATCH',{estado:estado,precio_venta:venta}).then(function(r){
+      var n=mapBuy(r);Object.keys(n).forEach(function(k){b[k]=n[k]});renderBuy();
+    }).catch(function(er){toast(er.message);renderBuy()});
+  });
+
+  /* Acceso */
+  var mode='login';
+  function setMode(md){
+    mode=md;
+    document.querySelectorAll('#authform [data-mode]').forEach(function(b){b.setAttribute('aria-selected',b.getAttribute('data-mode')===md?'true':'false')});
+    $('a-codewrap').hidden=md!=='registro';
+    $('a-go').textContent=md==='login'?'Entrar':'Crear cuenta';
+    $('a-pass').autocomplete=md==='login'?'current-password':'new-password';
+    $('a-msg').textContent='';
+  }
+  document.querySelectorAll('#authform [data-mode]').forEach(function(b){b.addEventListener('click',function(){setMode(b.getAttribute('data-mode'))})});
+  $('authform').addEventListener('submit',function(e){
+    e.preventDefault();
+    var mail=$('a-mail').value.trim(),pass=$('a-pass').value,msg=$('a-msg');
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)){msg.textContent='Escribe un correo válido.';return}
+    if(pass.length<10){msg.textContent='La contraseña necesita al menos 10 caracteres.';return}
+    var body={correo:mail,clave:pass};
+    if(mode==='registro'){if(!$('a-code').value.trim()){msg.textContent='Escribe el código de invitación.';return}body.codigo=$('a-code').value.trim()}
+    $('a-go').disabled=true;msg.textContent='';
+    api(mode==='login'?'/login':'/registro','POST',body).then(function(r){
+      TOKEN=r.token;try{localStorage.setItem('radar_token',TOKEN)}catch(x){}
+      $('a-pass').value='';$('a-code').value='';boot();
+    }).catch(function(er){msg.textContent=er.message}).then(function(){$('a-go').disabled=false});
+  });
+  function logout(){
+    TOKEN=null;try{localStorage.removeItem('radar_token')}catch(e){}
+    P=[];B=[];loaded=false;$('app').hidden=true;$('auth').hidden=false;
+  }
+  $('logout').addEventListener('click',logout);
+  function boot(){
+    if(!TOKEN){$('auth').hidden=false;$('app').hidden=true;return}
+    $('auth').hidden=true;$('app').hidden=false;$('status').textContent='Cargando…';
+    load().catch(function(e){$('status').textContent='No se pudo cargar';toast(e.message)});
+  }
+  boot();
+})();
+</script>
+</body>
+</html>

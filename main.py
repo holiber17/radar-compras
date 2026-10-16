@@ -121,12 +121,14 @@ class ProductoIn(BaseModel):
     categoria: Optional[str] = Field(None, max_length=80)
     precio_objetivo: Optional[float] = Field(None, ge=0)
     notas: Optional[str] = Field(None, max_length=1000)
+    venta_est: Optional[float] = Field(None, ge=0, le=100000)
+    envio_est: Optional[float] = Field(None, ge=0, le=100000)
 
 
 @app.get("/productos")
 def listar_productos(uid=Depends(usuario), conn=Depends(db)):
     return conn.execute(
-        """SELECT p.id, p.asin, p.titulo, p.categoria, p.precio_objetivo, p.notas,
+        """SELECT p.id, p.asin, p.titulo, p.categoria, p.precio_objetivo, p.notas, p.venta_est, p.envio_est,
                   u.amazon_actual, u.amazon_prom, u.amazon_min, u.amazon_max, u.consultado_en
            FROM productos p LEFT JOIN ultimo_precio u ON u.asin = p.asin
            WHERE p.user_id=%s ORDER BY p.creado_en DESC""", (uid,)).fetchall()
@@ -142,14 +144,16 @@ def agregar_producto(p: ProductoIn, uid=Depends(usuario), conn=Depends(db)):
     if n >= 200:
         raise HTTPException(409, "Límite de 200 productos por usuario")
     return conn.execute(
-        """INSERT INTO productos (user_id, asin, titulo, categoria, precio_objetivo, notas)
-           VALUES (%s,%s,%s,%s,%s,%s)
+        """INSERT INTO productos (user_id, asin, titulo, categoria, precio_objetivo, notas, venta_est, envio_est)
+           VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
            ON CONFLICT (user_id, asin) DO UPDATE SET titulo=COALESCE(EXCLUDED.titulo, productos.titulo),
              categoria=COALESCE(EXCLUDED.categoria, productos.categoria),
              precio_objetivo=COALESCE(EXCLUDED.precio_objetivo, productos.precio_objetivo),
-             notas=COALESCE(EXCLUDED.notas, productos.notas)
+             notas=COALESCE(EXCLUDED.notas, productos.notas),
+             venta_est=COALESCE(EXCLUDED.venta_est, productos.venta_est),
+             envio_est=COALESCE(EXCLUDED.envio_est, productos.envio_est)
            RETURNING id, asin, titulo""",
-        (uid, asin, p.titulo, p.categoria, p.precio_objetivo, p.notas)).fetchone()
+        (uid, asin, p.titulo, p.categoria, p.precio_objetivo, p.notas, p.venta_est, p.envio_est)).fetchone()
 
 
 @app.delete("/productos/{asin}")

@@ -5,3 +5,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
   clave_hash  text NOT NULL,
   creado_en   timestamptz NOT NULL DEFAULT now()
 );
+
+-- Precio de venta y envío estimados por producto (para calcular oportunidades)
+ALTER TABLE productos ADD COLUMN IF NOT EXISTS venta_est numeric(10,2);
+ALTER TABLE productos ADD COLUMN IF NOT EXISTS envio_est numeric(10,2);
