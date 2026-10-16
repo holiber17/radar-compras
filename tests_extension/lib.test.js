@@ -1,0 +1,20 @@
+const assert = require("assert");
+const L = require("../extension/lib.js");
+assert.strictEqual(L.extractAsin("https://www.amazon.com/Some-Name/dp/B00S0BEUIY/ref=sr_1_1?x=1"), "B00S0BEUIY");
+assert.strictEqual(L.extractAsin("https://www.amazon.com/dp/b00s0beuiy"), "B00S0BEUIY");
+assert.strictEqual(L.extractAsin("https://www.amazon.com/gp/product/B00S0BEUIY?th=1"), "B00S0BEUIY");
+assert.strictEqual(L.extractAsin("https://www.amazon.com/s?k=algo"), null);
+assert.strictEqual(L.parsePrice("$38.99"), 38.99);
+assert.strictEqual(L.parsePrice("$1,249.00"), 1249);
+assert.strictEqual(L.parsePrice("US$ 12"), 12);
+assert.strictEqual(L.parsePrice("Sin precio"), null);
+const S = { tax: 7, pack: 1, com: 13.25, fijo: 0.3, meta: 20 };
+const e = L.evaluate(S, 38.99, 5.5, 79);
+assert.ok(Math.abs(e.total - 42.7193) < 1e-3);
+assert.ok(Math.abs(e.net - (79 - (79 * .1325 + .3) - 5.5 - 42.7193)) < 1e-3);
+assert.strictEqual(e.verdict, "ok");
+// el precio mínimo calculado cumple justo la meta
+const m = L.evaluate(S, 38.99, 5.5, e.minVenta);
+assert.ok(Math.abs(m.mg - 20) < 1e-6);
+assert.strictEqual(L.evaluate(S, 60, 5, 70).verdict, "no");
+console.log("lib ok");
