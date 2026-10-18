@@ -319,6 +319,7 @@ td input.ee.n{width:84px;text-align:right}
     <div class="seg2" role="group" aria-label="Tipo de envío">
       <button type="button" data-etipo="saliente" aria-pressed="true">Salientes (a tus compradores)</button>
       <button type="button" data-etipo="entrante" aria-pressed="false">Entrantes (de Amazon)</button>
+      <button type="button" id="btn-seg" style="margin-left:auto">Actualizar seguimiento</button>
     </div>
     <details class="params" id="eaddbox" style="margin-bottom:16px">
       <summary><span id="eaddtitle">Agregar envío</span></summary>
@@ -698,7 +699,7 @@ td input.ee.n{width:84px;text-align:right}
     function sel(e){return'<select data-env="'+e.id+'" data-f="estado" aria-label="Estado">'+EST[e.tipo].map(function(x){return'<option'+(x===e.estado?' selected':'')+'>'+x+'</option>'}).join('')+'</select>'}
     function inp(e,f,cls){return'<input class="ee'+(cls?' '+cls:'')+'" data-env="'+e.id+'" data-f="'+f+'" value="'+esc(e[f]==null?'':e[f])+'"'+(cls==='n'?' type="number" step="0.01" min="0"':'')+' aria-label="'+f+'">'}
     $('erows').innerHTML=rows.map(function(e){
-      var base='<td class="name">'+esc(e.descripcion)+(e.notas?'<br><span class="sub">'+esc(e.notas)+'</span>':'')+'</td><td>'+plazo(e)+'</td><td>'+sel(e)+'</td><td>'+inp(e,'transportista')+'</td><td>'+inp(e,'guia')+'</td>';
+      var base='<td class="name">'+esc(e.descripcion)+(e.ultimo_evento?'<br><span class="sub">Transportista: '+esc(e.ultimo_evento)+'</span>':'')+(e.notas?'<br><span class="sub">'+esc(e.notas)+'</span>':'')+'</td><td>'+plazo(e)+'</td><td>'+sel(e)+'</td><td>'+inp(e,'transportista')+'</td><td>'+inp(e,'guia')+'</td>';
       var fin='<td><button class="link warn" data-act="edel" data-id="'+e.id+'">Quitar</button></td>';
       return eTipo==='saliente'
         ?'<tr>'+base+'<td class="num">'+inp(e,'peso_oz','n')+'</td><td class="num">'+inp(e,'costo_envio','n')+'</td>'+fin+'</tr>'
@@ -712,6 +713,13 @@ td input.ee.n{width:84px;text-align:right}
     var open=B.filter(function(b){return b.estado!=='Vendido'||sal});
     $('e-compra').innerHTML='<option value="">Sin relacionar</option>'+B.map(function(b){return'<option value="'+b.id+'">'+esc(b.name)+' ('+fd(b.fecha)+')</option>'}).join('');
   }
+  $('btn-seg').addEventListener('click',function(){
+    var b=this;b.disabled=true;b.textContent='Consultando…';
+    api('/envios/seguimiento','POST').then(function(r){
+      (r.envios||[]).forEach(function(n){var i=E.findIndex(function(x){return x.id===n.id});if(i>=0)E[i]=n});
+      toast(r.revisados?('Revisadas '+r.revisados+' guías · '+r.cambios+' con cambios'):'No hay guías en camino para revisar');renderEnv();
+    }).catch(function(er){toast(er.message)}).then(function(){b.disabled=false;b.textContent='Actualizar seguimiento'});
+  });
   document.querySelectorAll('[data-etipo]').forEach(function(b){b.addEventListener('click',function(){eTipo=b.getAttribute('data-etipo');syncEnvForm();renderEnv()})});
   $('eform').addEventListener('submit',function(ev){
     ev.preventDefault();

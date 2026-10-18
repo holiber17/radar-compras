@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from psycopg.rows import dict_row
 from pydantic import BaseModel, Field
 
+import seguimiento
 from security import crear_token, hash_clave, leer_token, verificar_clave
 
 ESTADOS = ("Comprado", "En camino", "Recibido", "Publicado", "Vendido")
@@ -320,6 +321,39 @@ def actualizar_envio(eid: int, p: EnvioPatch, uid=Depends(usuario), conn=Depends
     if not sets:
         raise HTTPException(422, "Nada que actualizar")
     return conn.execute(f"UPDATE envios SET {sets} WHERE id=%s AND user_id=%s RETURNING *", params + [eid, uid]).fetchone()
+
+
+@app.post("/envios/seguimiento")
+def seguir_envios(uid=Depends(usuario), conn=Depends(db)):
+    """Consulta el estado real de las guías de envíos abiertos y actualiza la tabla."""
+    if not os.environ.get("TRACK17_KEY"):
+        raise HTTPException(503, "Seguimiento automático no configurado (falta TRACK17_KEY en el servidor)")
+    filas = conn.execute(
+        """SELECT id, tipo, guia, estado FROM envios WHERE user_id=%s AND coalesce(guia,'')<>''
+           AND estado IN ('Enviado','En tránsito','Con problema') ORDER BY creado_en DESC LIMIT 80""", (uid,)).fetchall()
+    if not filas:
+        return {"revisados": 0, "cambios": 0, "envios": []}
+    try:
+        datos = seguimiento.consultar(sorted({f["guia"].strip() for f in filas}))
+    except Exception as ex:
+        raise HTTPException(502, f"No se pudo consultar el servicio de seguimiento: {type(ex).__name__}")
+    cambios = []
+    for f in filas:
+        d = datos.get(f["guia"].strip())
+        if not d:
+            continue
+        nuevo = d["estado"] or f["estado"]
+        if f["tipo"] == "saliente" and nuevo == "Devuelto":
+            nuevo = f["estado"]
+        fila = conn.execute(
+            """UPDATE envios SET estado=%s, ultimo_evento=coalesce(%s, ultimo_evento), revisado_en=now(),
+                 fecha_estimada=coalesce(%s::date, fecha_estimada),
+                 fecha_entrega=CASE WHEN %s='Entregado' THEN coalesce(%s::date, fecha_entrega, current_date) ELSE fecha_entrega END
+               WHERE id=%s AND user_id=%s RETURNING *""",
+            (nuevo, d["evento"], d["fecha_estimada"], nuevo, d["entregado_en"], f["id"], uid)).fetchone()
+        if nuevo != f["estado"]:
+            cambios.append(fila)
+    return {"revisados": len(filas), "cambios": len(cambios), "envios": cambios}
 
 
 @app.delete("/envios/{eid}")
