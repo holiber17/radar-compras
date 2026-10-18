@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os, re, uuid
+from datetime import date
 from typing import Optional
 
 import psycopg
@@ -218,3 +219,110 @@ def cambiar_estado(cid: int, e: EstadoIn, uid=Depends(usuario), conn=Depends(db)
     if not fila:
         raise HTTPException(404, "Compra no encontrada")
     return fila
+
+
+# ---- Envíos ----
+ESTADOS_ENVIO = ("Pedido", "Por enviar", "Enviado", "En tránsito", "Entregado", "Devuelto", "Con problema")
+CAMPOS_ENVIO = ("compra_id", "descripcion", "transportista", "guia", "servicio", "estado", "fecha_limite", "fecha_estimada",
+                "fecha_envio", "fecha_entrega", "peso_oz", "largo_in", "ancho_in", "alto_in", "costo_envio", "ubicacion", "notas")
+
+
+class EnvioIn(BaseModel):
+    tipo: str
+    compra_id: Optional[int] = None
+    descripcion: str = Field(max_length=300)
+    transportista: Optional[str] = Field(None, max_length=40)
+    guia: Optional[str] = Field(None, max_length=60)
+    servicio: Optional[str] = Field(None, max_length=60)
+    estado: Optional[str] = None
+    fecha_limite: Optional[date] = None
+    fecha_estimada: Optional[date] = None
+    fecha_envio: Optional[date] = None
+    fecha_entrega: Optional[date] = None
+    peso_oz: Optional[float] = Field(None, ge=0, le=100000)
+    largo_in: Optional[float] = Field(None, ge=0, le=1000)
+    ancho_in: Optional[float] = Field(None, ge=0, le=1000)
+    alto_in: Optional[float] = Field(None, ge=0, le=1000)
+    costo_envio: Optional[float] = Field(None, ge=0, le=100000)
+    ubicacion: Optional[str] = Field(None, max_length=120)
+    notas: Optional[str] = Field(None, max_length=1000)
+
+
+class EnvioPatch(BaseModel):
+    compra_id: Optional[int] = None
+    descripcion: Optional[str] = Field(None, max_length=300)
+    transportista: Optional[str] = Field(None, max_length=40)
+    guia: Optional[str] = Field(None, max_length=60)
+    servicio: Optional[str] = Field(None, max_length=60)
+    estado: Optional[str] = None
+    fecha_limite: Optional[date] = None
+    fecha_estimada: Optional[date] = None
+    fecha_envio: Optional[date] = None
+    fecha_entrega: Optional[date] = None
+    peso_oz: Optional[float] = Field(None, ge=0, le=100000)
+    largo_in: Optional[float] = Field(None, ge=0, le=1000)
+    ancho_in: Optional[float] = Field(None, ge=0, le=1000)
+    alto_in: Optional[float] = Field(None, ge=0, le=1000)
+    costo_envio: Optional[float] = Field(None, ge=0, le=100000)
+    ubicacion: Optional[str] = Field(None, max_length=120)
+    notas: Optional[str] = Field(None, max_length=1000)
+
+
+def build_update(valores: dict, permitidos=CAMPOS_ENVIO):
+    """Arma el SET de un UPDATE parcial solo con columnas permitidas (los valores van como parámetros)."""
+    cols = [k for k in valores if k in permitidos]
+    return ", ".join(f"{c}=%s" for c in cols), [valores[c] for c in cols]
+
+
+def _revisar_envio(estado, tipo=None):
+    if estado is not None and estado not in ESTADOS_ENVIO:
+        raise HTTPException(422, "Estado inválido")
+    if estado == "Pedido" and tipo == "saliente" or estado == "Por enviar" and tipo == "entrante":
+        raise HTTPException(422, "Ese estado no corresponde a este tipo de envío")
+
+
+@app.get("/envios")
+def listar_envios(uid=Depends(usuario), conn=Depends(db)):
+    return conn.execute("SELECT * FROM envios WHERE user_id=%s ORDER BY creado_en DESC, id DESC LIMIT 500", (uid,)).fetchall()
+
+
+@app.post("/envios")
+def crear_envio(e: EnvioIn, uid=Depends(usuario), conn=Depends(db)):
+    if e.tipo not in ("entrante", "saliente"):
+        raise HTTPException(422, "Tipo inválido")
+    estado = e.estado or ("Por enviar" if e.tipo == "saliente" else "Pedido")
+    _revisar_envio(estado, e.tipo)
+    if e.compra_id and not conn.execute("SELECT 1 FROM compras WHERE id=%s AND user_id=%s", (e.compra_id, uid)).fetchone():
+        raise HTTPException(404, "Compra no encontrada")
+    n = conn.execute("SELECT count(*) AS n FROM envios WHERE user_id=%s", (uid,)).fetchone()["n"]
+    if n >= 5000:
+        raise HTTPException(409, "Límite de envíos alcanzado")
+    datos = e.model_dump()
+    datos["estado"] = estado
+    cols = ["tipo"] + list(CAMPOS_ENVIO)
+    return conn.execute(
+        f"INSERT INTO envios (user_id, {', '.join(cols)}) VALUES (%s, {', '.join(['%s'] * len(cols))}) RETURNING *",
+        [uid] + [datos[c] for c in cols]).fetchone()
+
+
+@app.patch("/envios/{eid}")
+def actualizar_envio(eid: int, p: EnvioPatch, uid=Depends(usuario), conn=Depends(db)):
+    valores = p.model_dump(exclude_unset=True)
+    fila = conn.execute("SELECT tipo FROM envios WHERE id=%s AND user_id=%s", (eid, uid)).fetchone()
+    if not fila:
+        raise HTTPException(404, "Envío no encontrado")
+    _revisar_envio(valores.get("estado"), fila["tipo"])
+    if valores.get("compra_id") and not conn.execute("SELECT 1 FROM compras WHERE id=%s AND user_id=%s", (valores["compra_id"], uid)).fetchone():
+        raise HTTPException(404, "Compra no encontrada")
+    if valores.get("descripcion", "x") is None:
+        raise HTTPException(422, "La descripción no puede quedar vacía")
+    sets, params = build_update(valores)
+    if not sets:
+        raise HTTPException(422, "Nada que actualizar")
+    return conn.execute(f"UPDATE envios SET {sets} WHERE id=%s AND user_id=%s RETURNING *", params + [eid, uid]).fetchone()
+
+
+@app.delete("/envios/{eid}")
+def borrar_envio(eid: int, uid=Depends(usuario), conn=Depends(db)):
+    conn.execute("DELETE FROM envios WHERE id=%s AND user_id=%s", (eid, uid))
+    return {"ok": True}

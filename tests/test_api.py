@@ -34,6 +34,19 @@ class T(unittest.TestCase):
         self.assertIsNone(main.ASIN_RE.match("b000000000"))
         self.assertTrue(main.ASIN_RE.match("B00S0BEUIY"))
 
+    def test_envios(self):
+        sets, params = main.build_update({"estado": "Enviado", "guia": "9400", "user_id": "otro", "x; DROP": 1})
+        self.assertEqual(sets, "estado=%s, guia=%s")
+        self.assertEqual(params, ["Enviado", "9400"])
+        with self.assertRaises(main.HTTPException):
+            main._revisar_envio("Inventado")
+        with self.assertRaises(main.HTTPException):
+            main._revisar_envio("Pedido", "saliente")
+        main._revisar_envio("Por enviar", "saliente")
+        c = TestClient(main.app)
+        for m_, p in [("get", "/envios"), ("post", "/envios"), ("patch", "/envios/1"), ("delete", "/envios/1")]:
+            self.assertIn(getattr(c, m_)(p).status_code, (401, 422), p)
+
 
 if __name__ == "__main__":
     unittest.main()

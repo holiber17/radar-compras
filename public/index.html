@@ -194,6 +194,14 @@ td select{background:var(--bg);border:1px solid var(--line);border-radius:6px;pa
 .act .links{display:flex;gap:14px}
 td input.vv{width:92px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:4px 6px;text-align:right}
 .top .who2{display:flex;align-items:center;gap:12px}
+.seg2{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:14px}
+.seg2 button{background:transparent;border:0;padding:7px 16px;font-weight:600;color:var(--muted);cursor:pointer}
+.seg2 button[aria-pressed="true"]{background:var(--accent);color:#fff}
+.plazo{display:inline-block;font-size:12px;font-weight:600;border-radius:999px;padding:1px 9px}
+.plazo.late{background:var(--bad-soft);color:var(--bad)}.plazo.today{background:var(--warn-soft);color:var(--warn)}.plazo.ok{background:var(--accent-soft);color:var(--accent)}
+td input.ee{width:120px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:4px 6px}
+td input.ee.n{width:84px;text-align:right}
+#v-env table{min-width:900px}
 </style>
 </head>
 <body>
@@ -245,6 +253,7 @@ td input.vv{width:92px;background:var(--bg);border:1px solid var(--line);border-
     <button role="tab" id="t-op" data-tab="op" aria-selected="true">Oportunidades</button>
     <button role="tab" id="t-calc" data-tab="calc" aria-selected="false">Calculadora</button>
     <button role="tab" id="t-buy" data-tab="buy" aria-selected="false">Compras<span class="count" id="buycount">0</span></button>
+    <button role="tab" id="t-env" data-tab="env" aria-selected="false">Envíos<span class="count" id="envcount">0</span></button>
   </nav>
 
   <section id="v-op" role="tabpanel" aria-labelledby="t-op">
@@ -305,6 +314,33 @@ td input.vv{width:92px;background:var(--bg);border:1px solid var(--line);border-
     </div>
     <p class="note" style="margin-top:12px">El costo de cada compra queda guardado con los valores del día en que se registró, así no cambia cuando cambian el impuesto o el empaque. Al pasar una compra a Vendido se usa el precio de venta que escribas; si lo dejas vacío, el estimado.</p>
   </section>
+  <section id="v-env" role="tabpanel" aria-labelledby="t-env" hidden>
+    <div class="kpis" id="ekpis"></div>
+    <div class="seg2" role="group" aria-label="Tipo de envío">
+      <button type="button" data-etipo="saliente" aria-pressed="true">Salientes (a tus compradores)</button>
+      <button type="button" data-etipo="entrante" aria-pressed="false">Entrantes (de Amazon)</button>
+    </div>
+    <details class="params" id="eaddbox" style="margin-bottom:16px">
+      <summary><span id="eaddtitle">Agregar envío</span></summary>
+      <form class="pform" id="eform" style="padding:4px 16px 16px" novalidate>
+        <label class="f full">Qué se envía<input id="e-desc" type="text" maxlength="300"></label>
+        <label class="f">Compra relacionada<select id="e-compra"></select></label>
+        <label class="f">Transportista<input id="e-car" type="text" list="carriers" maxlength="40"></label>
+        <label class="f">Número de guía<input id="e-guia" type="text" maxlength="60" autocomplete="off"></label>
+        <label class="f" id="w-limite">Despachar a más tardar el<input id="e-limite" type="date"></label>
+        <label class="f" id="w-est">Llegada estimada<input id="e-est" type="date"></label>
+        <label class="f" id="w-peso">Peso (oz)<input id="e-peso" type="number" step="0.1" min="0" inputmode="decimal"></label>
+        <label class="f" id="w-medidas">Medidas largo x ancho x alto (pulg.)<input id="e-med" type="text" placeholder="12 x 8 x 4" maxlength="30"></label>
+        <label class="f" id="w-costo">Costo real del envío (US$)<input id="e-costo" type="number" step="0.01" min="0" inputmode="decimal"></label>
+        <label class="f" id="w-ubic">Dónde queda el producto<input id="e-ubic" type="text" maxlength="120"></label>
+        <div><button class="btn" type="submit" id="e-go">Guardar envío</button></div>
+        <p class="msg full" id="e-msg" role="alert"></p>
+      </form>
+      <datalist id="carriers"><option>USPS</option><option>UPS</option><option>FedEx</option><option>DHL</option><option>Amazon Logistics</option></datalist>
+    </details>
+    <div class="tablebox"><table><thead id="ehead"></thead><tbody id="erows"></tbody></table></div>
+    <p class="note" style="margin-top:12px" id="enote"></p>
+  </section>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <script>
@@ -318,7 +354,7 @@ td input.vv{width:92px;background:var(--bg);border:1px solid var(--line);border-
     {id:'custom',name:'Personalizado',com:null,fijo:null}
   ];
   var S={tax:7,pack:1,canal:'ebay',com:13.25,fijo:0.30,meta:20,only:false,sort:'mg',c:{pid:'',name:'',price:0,venta:0,ship:0,qty:1}};
-  var P=[],B=[],TOKEN=null,editing=null,saveT=null,loaded=false;
+  var P=[],B=[],E=[],eTipo='saliente',TOKEN=null,editing=null,saveT=null,loaded=false;
   try{TOKEN=localStorage.getItem('radar_token')}catch(e){}
 
   function $(id){return document.getElementById(id)}
@@ -375,10 +411,10 @@ td input.vv{width:92px;background:var(--bg);border:1px solid var(--line);border-
   function mapBuy(r){return{id:r.id,pid:r.producto_id,name:r.nombre,qty:r.cantidad,costo:num(r.costo_unitario),ship:num(r.envio_comprador),
     fecha:r.fecha,estado:r.estado,canal:r.canal||'',venta:r.precio_venta==null?null:num(r.precio_venta),est:num(r.precio_estimado)}}
   function load(){
-    return Promise.all([api('/ajustes'),api('/productos'),api('/compras')]).then(function(r){
+    return Promise.all([api('/ajustes'),api('/productos'),api('/compras'),api('/envios')]).then(function(r){
       var a=r[0];S.tax=num(a.impuesto_pct);S.pack=num(a.empaque);S.canal=a.canal;S.com=num(a.comision_pct);S.fijo=num(a.cargo_fijo);S.meta=num(a.margen_minimo);
       if(!CANALES.some(function(c){return c.id===S.canal}))S.canal='custom';
-      P=r[1].map(mapProd);B=r[2].map(mapBuy);loaded=true;
+      P=r[1].map(mapProd);B=r[2].map(mapBuy);E=r[3];loaded=true;
       $('status').textContent=P.length+(P.length===1?' producto vigilado':' productos vigilados');
       syncParams();renderAll();
     });
@@ -513,14 +549,15 @@ td input.vv{width:92px;background:var(--bg);border:1px solid var(--line);border-
     $('c-prod').innerHTML='<option value="">Escribir a mano</option>'+P.map(function(p){return'<option value="'+p.id+'"'+(String(p.id)===String(c.pid)?' selected':'')+'>'+esc(p.name)+'</option>'}).join('');
     $('c-name').value=c.name;$('c-price').value=c.price||'';$('c-venta').value=c.venta||'';$('c-ship').value=c.ship||'';$('c-qty').value=c.qty;
   }
-  function renderAll(){renderHero();renderList();renderCalc();renderBuy()}
+  function renderAll(){renderHero();renderList();renderCalc();renderBuy();renderEnv()}
 
   /* Acciones */
   function showTab(t){
-    ['op','calc','buy'].forEach(function(k){
+    ['op','calc','buy','env'].forEach(function(k){
       $('v-'+k).hidden=k!==t;$('t-'+k).setAttribute('aria-selected',k===t?'true':'false');
     });
     if(t==='calc')syncCalcFields();
+    if(t==='env')syncEnvForm();
   }
   function openCalc(id){
     var p=P.filter(function(x){return String(x.id)===String(id)})[0];
@@ -611,6 +648,109 @@ td input.vv{width:92px;background:var(--bg);border:1px solid var(--line);border-
     }).catch(function(er){toast(er.message);renderBuy()});
   });
 
+
+  /* Envíos */
+  var EST={saliente:['Por enviar','Enviado','En tránsito','Entregado','Devuelto','Con problema'],entrante:['Pedido','Enviado','En tránsito','Entregado','Con problema']};
+  function hoy(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+  function diasHasta(f){return Math.round((new Date(String(f).slice(0,10)+'T12:00:00')-new Date(hoy()+'T12:00:00'))/86400000)}
+  function plazo(e){
+    var f=e.tipo==='saliente'?e.fecha_limite:e.fecha_estimada;
+    if(!f||e.estado==='Entregado'||e.estado==='Devuelto')return'<span class="est">'+(f?fd(f):'Sin fecha')+'</span>';
+    var d=diasHasta(f);
+    if(e.tipo==='saliente'&&e.estado!=='Por enviar')return'<span class="est">'+fd(f)+'</span>';
+    if(d<0)return'<span class="plazo late">'+(e.tipo==='saliente'?'Vencido hace ':'Atrasado ')+Math.abs(d)+(Math.abs(d)===1?' día':' días')+'</span>';
+    if(d===0)return'<span class="plazo today">Hoy</span>';
+    if(d===1)return'<span class="plazo ok">Mañana</span>';
+    return'<span class="plazo ok">En '+d+' días</span>';
+  }
+  function renderEnv(){
+    $('envcount').textContent=E.length;
+    var sal=E.filter(function(e){return e.tipo==='saliente'}),pend=sal.filter(function(e){return e.estado==='Por enviar'});
+    var urgentes=pend.filter(function(e){return e.fecha_limite&&diasHasta(e.fecha_limite)<=0}).length;
+    var camino=E.filter(function(e){return e.estado==='Enviado'||e.estado==='En tránsito'}).length;
+    var prob=E.filter(function(e){return e.estado==='Con problema'}).length;
+    var conCosto=sal.filter(function(e){return e.costo_envio!=null&&num(e.costo_envio)>0});
+    var prom=conCosto.length?conCosto.reduce(function(a,e){return a+num(e.costo_envio)},0)/conCosto.length:null;
+    $('ekpis').innerHTML=
+      '<div class="kpi"><span>Por enviar</span><b>'+pend.length+'</b></div>'+
+      '<div class="kpi'+(urgentes?'':' g')+'"><span>Vencen hoy o ya vencieron</span><b>'+urgentes+'</b></div>'+
+      '<div class="kpi"><span>En camino</span><b>'+camino+'</b></div>'+
+      '<div class="kpi"><span>Con problema</span><b>'+prob+'</b></div>'+
+      '<div class="kpi g"><span>Costo real promedio por envío</span><b>'+(prom==null?'Sin datos':m(prom))+'</b></div>';
+    document.querySelectorAll('[data-etipo]').forEach(function(b){b.setAttribute('aria-pressed',b.getAttribute('data-etipo')===eTipo?'true':'false')});
+    $('eaddtitle').textContent=eTipo==='saliente'?'Agregar envío a un comprador':'Agregar envío de Amazon';
+    var rows=E.filter(function(e){return e.tipo===eTipo});
+    var abierto=eTipo==='saliente'?'Por enviar':'Pedido';
+    rows.sort(function(a,b){
+      var pa=a.estado===abierto||a.estado==='Con problema'?0:1,pb=b.estado===abierto||b.estado==='Con problema'?0:1;
+      if(pa!==pb)return pa-pb;
+      var fa=(eTipo==='saliente'?a.fecha_limite:a.fecha_estimada)||'9999',fb=(eTipo==='saliente'?b.fecha_limite:b.fecha_estimada)||'9999';
+      return fa<fb?-1:fa>fb?1:b.id-a.id;
+    });
+    if(eTipo==='saliente'){
+      $('ehead').innerHTML='<tr><th>Qué se envía</th><th>Plazo</th><th>Estado</th><th>Transportista</th><th>Guía</th><th class="num">Peso (oz)</th><th class="num">Costo real</th><th></th></tr>';
+      $('enote').textContent='Los envíos por enviar aparecen primero, del plazo más cercano al más lejano. El costo real que anotes aquí te servirá para ajustar el "envío al comprador" de la calculadora.';
+    }else{
+      $('ehead').innerHTML='<tr><th>Qué llega</th><th>Llegada</th><th>Estado</th><th>Transportista</th><th>Guía</th><th>Dónde queda</th><th></th></tr>';
+      $('enote').textContent='Un paquete atrasado se marca en rojo cuando pasa su fecha estimada. Si llega dañado o incompleto, cámbialo a "Con problema" y anota el detalle en las notas para reclamar a Amazon dentro de su plazo.';
+    }
+    if(!rows.length){$('erows').innerHTML='<tr><td colspan="8" class="empty">'+(eTipo==='saliente'?'No hay envíos a compradores. Cuando vendas algo, agrégalo aquí con su plazo de despacho.':'No hay paquetes en camino desde Amazon. Agrega uno con su número de guía para seguirlo.')+'</td></tr>';return}
+    function sel(e){return'<select data-env="'+e.id+'" data-f="estado" aria-label="Estado">'+EST[e.tipo].map(function(x){return'<option'+(x===e.estado?' selected':'')+'>'+x+'</option>'}).join('')+'</select>'}
+    function inp(e,f,cls){return'<input class="ee'+(cls?' '+cls:'')+'" data-env="'+e.id+'" data-f="'+f+'" value="'+esc(e[f]==null?'':e[f])+'"'+(cls==='n'?' type="number" step="0.01" min="0"':'')+' aria-label="'+f+'">'}
+    $('erows').innerHTML=rows.map(function(e){
+      var base='<td class="name">'+esc(e.descripcion)+(e.notas?'<br><span class="sub">'+esc(e.notas)+'</span>':'')+'</td><td>'+plazo(e)+'</td><td>'+sel(e)+'</td><td>'+inp(e,'transportista')+'</td><td>'+inp(e,'guia')+'</td>';
+      var fin='<td><button class="link warn" data-act="edel" data-id="'+e.id+'">Quitar</button></td>';
+      return eTipo==='saliente'
+        ?'<tr>'+base+'<td class="num">'+inp(e,'peso_oz','n')+'</td><td class="num">'+inp(e,'costo_envio','n')+'</td>'+fin+'</tr>'
+        :'<tr>'+base+'<td>'+inp(e,'ubicacion')+'</td>'+fin+'</tr>';
+    }).join('');
+  }
+  function syncEnvForm(){
+    var sal=eTipo==='saliente';
+    ['w-limite','w-peso','w-medidas','w-costo'].forEach(function(i){$(i).hidden=!sal});
+    ['w-est','w-ubic'].forEach(function(i){$(i).hidden=sal});
+    var open=B.filter(function(b){return b.estado!=='Vendido'||sal});
+    $('e-compra').innerHTML='<option value="">Sin relacionar</option>'+B.map(function(b){return'<option value="'+b.id+'">'+esc(b.name)+' ('+fd(b.fecha)+')</option>'}).join('');
+  }
+  document.querySelectorAll('[data-etipo]').forEach(function(b){b.addEventListener('click',function(){eTipo=b.getAttribute('data-etipo');syncEnvForm();renderEnv()})});
+  $('eform').addEventListener('submit',function(ev){
+    ev.preventDefault();
+    var msg=$('e-msg'),d=$('e-desc').value.trim();
+    if(!d){msg.textContent='Escribe qué se envía.';return}
+    var body={tipo:eTipo,descripcion:d,compra_id:$('e-compra').value?Number($('e-compra').value):null,
+      transportista:$('e-car').value.trim()||null,guia:$('e-guia').value.trim()||null};
+    if(eTipo==='saliente'){
+      body.fecha_limite=$('e-limite').value||null;body.peso_oz=$('e-peso').value===''?null:num($('e-peso').value);
+      body.costo_envio=$('e-costo').value===''?null:num($('e-costo').value);
+      var md=$('e-med').value.trim();
+      if(md){var q=md.split(/[x×*]/i).map(function(v){return parseFloat(v.replace(',','.'))});
+        if(q.length!==3||q.some(function(v){return!isFinite(v)||v<0})){msg.textContent='Escribe las medidas así: 12 x 8 x 4.';return}
+        body.largo_in=q[0];body.ancho_in=q[1];body.alto_in=q[2]}
+    }else{body.fecha_estimada=$('e-est').value||null;body.ubicacion=$('e-ubic').value.trim()||null}
+    $('e-go').disabled=true;msg.textContent='';
+    api('/envios','POST',body).then(function(r){
+      E.unshift(r);$('eform').reset();$('eaddbox').open=false;renderEnv();toast('Envío guardado');
+    }).catch(function(er){msg.textContent=er.message}).then(function(){$('e-go').disabled=false});
+  });
+  $('erows').addEventListener('change',function(ev){
+    var t=ev.target,id=t.getAttribute('data-env'),f=t.getAttribute('data-f');if(!id)return;
+    var e=E.filter(function(x){return String(x.id)===id})[0];if(!e)return;
+    var body={},v=t.value.trim();
+    if(f==='peso_oz'||f==='costo_envio')body[f]=v===''?null:num(v);else body[f]=v===''?null:v;
+    if(f==='estado'){
+      if(v==='Enviado'&&!e.fecha_envio)body.fecha_envio=hoy();
+      if(v==='Entregado'&&!e.fecha_entrega)body.fecha_entrega=hoy();
+    }
+    api('/envios/'+e.id,'PATCH',body).then(function(r){Object.keys(r).forEach(function(k){e[k]=r[k]});renderEnv()})
+      .catch(function(er){toast(er.message);renderEnv()});
+  });
+  document.addEventListener('click',function(ev){
+    var b=ev.target.closest('[data-act="edel"]');if(!b)return;
+    if(b.getAttribute('data-sure')!=='1'){b.setAttribute('data-sure','1');b.textContent='Confirmar';setTimeout(function(){if(b.isConnected){b.removeAttribute('data-sure');b.textContent='Quitar'}},4000);return}
+    var id=b.getAttribute('data-id');
+    api('/envios/'+id,'DELETE').then(function(){E=E.filter(function(x){return String(x.id)!==id});renderEnv();toast('Envío quitado')}).catch(function(er){toast(er.message)});
+  });
+
   /* Acceso */
   var mode='login';
   function setMode(md){
@@ -637,7 +777,7 @@ td input.vv{width:92px;background:var(--bg);border:1px solid var(--line);border-
   });
   function logout(){
     TOKEN=null;try{localStorage.removeItem('radar_token')}catch(e){}
-    P=[];B=[];loaded=false;$('app').hidden=true;$('auth').hidden=false;
+    P=[];B=[];E=[];loaded=false;$('app').hidden=true;$('auth').hidden=false;
   }
   $('logout').addEventListener('click',logout);
   function boot(){
