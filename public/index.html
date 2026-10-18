@@ -316,10 +316,12 @@ td input.ee.n{width:84px;text-align:right}
   </section>
   <section id="v-env" role="tabpanel" aria-labelledby="t-env" hidden>
     <div class="kpis" id="ekpis"></div>
-    <div class="seg2" role="group" aria-label="Tipo de envío">
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:16px">
+    <div class="seg2" role="group" aria-label="Tipo de envío" style="margin:0">
       <button type="button" data-etipo="saliente" aria-pressed="true">Salientes (a tus compradores)</button>
       <button type="button" data-etipo="entrante" aria-pressed="false">Entrantes (de Amazon)</button>
-      <button type="button" id="btn-seg" style="margin-left:auto">Actualizar seguimiento</button>
+    </div>
+    <button type="button" id="btn-seg" class="btn" style="background:var(--accent);color:#fff;border:0;border-radius:8px;padding:8px 14px;font-weight:600;cursor:pointer">Actualizar seguimiento</button>
     </div>
     <details class="params" id="eaddbox" style="margin-bottom:16px">
       <summary><span id="eaddtitle">Agregar envío</span></summary>
